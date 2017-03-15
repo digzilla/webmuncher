@@ -1,0 +1,98 @@
+<html>
+
+<script src="js/PaPaParse-4.1.2/papaparse.js"></script>
+
+<!--<input type="file" id="input"></input>-->
+
+
+<script>
+
+function showCSV() {
+  var textData = Papa.parse("data/NNIT-01-151201-cd.csv", {
+      download: true,
+      delimiter: ",",
+      complete: function(results) {
+        console.log(results);
+        jsonToTable(results);
+        jsonToUniqueNamesList(results);
+        jsonToBasicGeoJSON(results);
+      }
+  });
+}
+
+function jsonToTable(inputJSON) {
+  var txt = "<table border='1'>";
+  for (x in inputJSON.data) {
+      txt +="<tr>"
+      for (y in inputJSON.data[x]) {
+        txt += "<td>" + inputJSON.data[x][y] + "</td>";
+      }
+      txt += "</tr>";
+  }
+  txt += "</table>";
+  document.getElementById("rawOutput").innerHTML += txt;
+
+}
+
+function jsonToUniqueNamesList(inputJSON){
+  var txt = "<table border='1'>";
+  var uniqueNames = [];
+  var z = 0
+  for (x in inputJSON.data) {
+    name = inputJSON.data[x][0].slice(0, inputJSON.data[x][0].lastIndexOf("-"));
+    if (uniqueNames.Length == 0) {
+      uniqueNames.push(name);
+      txt +="<tr><td>" + name + "</td></tr>";
+      z++;
+    } else {
+      if (uniqueNames[z-1]!=name) {
+        uniqueNames.push(name);
+        txt +="<tr><td>" + name + "</td></tr>";
+        z++;
+      }
+    }
+  }
+  txt += "</table>";
+  document.getElementById("uniqueOutput").innerHTML += txt;
+}
+
+function jsonToBasicGeoJSON(inputJSON){
+  var txt = "<table border='1'>";
+  var uniqueNames = [];
+  var z = 0
+  for (x in inputJSON.data) {
+    name = inputJSON.data[x][0].slice(0, inputJSON.data[x][0].lastIndexOf("-"));
+    if (typeof uniqueNames[0] == 'undefined') {
+      console.log("starting from nothing");
+      var newThing = {};
+      newThing.name=name;
+      newThing.coords=inputJSON.data[x][1]+","+inputJSON.data[x][2]+","+inputJSON.data[x][3];
+      uniqueNames.push(newThing);
+      z++;
+    } else {
+      if (uniqueNames[z-1].name != name) {
+        var newThing = {};
+        newThing.name=name;
+        newThing.coords=inputJSON.data[x][1]+","+inputJSON.data[x][2]+","+inputJSON.data[x][3];
+        uniqueNames.push(newThing);
+        z++;
+      } else {
+        console.log(uniqueNames[z-1].coords); // += "," +newThing.coords=inputJSON.data[x][1]+","+inputJSON.data[x][2]+","+inputJSON.data[x][3];
+        z++;
+      }
+      txt +="<tr><td>" + uniqueNames[z-1].name + "</td><td>"+ uniqueNames[z-1].coords + "</td></tr>";
+    }
+  }
+  txt += "</table>";
+  document.getElementById("basicGeoOutput").innerHTML += txt;
+  console.log(uniqueNames);
+}
+
+
+</script>
+
+<input type="button" id="goButton" value="show me the CSV" onClick="showCSV();">
+<div id="rawOutput"><h2>All Data:</h2></div>
+<div id="uniqueOutput"><h2>Unique Point Names:</h2></div>
+<div id="basicGeoOutput"><h2>Basic GeoJSON:</h2></div>
+</html>
