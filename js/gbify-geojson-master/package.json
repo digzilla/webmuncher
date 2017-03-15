@@ -1,0 +1,31 @@
+{
+  "name": "gbify-geojson",
+  "version": "0.2.1",
+  "description": "Reproject GeoJSON between OSGB36 GB National Grid and WGS84",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha -R spec"
+  },
+  "keywords": [
+    "geojson",
+    "osgb36",
+    "ordnancesurvey"
+  ],
+  "author": "Rob Murray <robmurray17@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rob-murray/gbify-geojson.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rob-murray/gbify-geojson/issues"
+  },
+  "homepage": "https://github.com/rob-murray/gbify-geojson",
+  "devDependencies": {
+    "expect.js": "^0.3.1",
+    "mocha": "^2.2.5"
+  },
+  "dependencies": {
+    "proj4": "^2.3.6"
+  }
+}
