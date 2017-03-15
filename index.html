@@ -15,7 +15,6 @@ function showCSV() {
         console.log(results);
         jsonToTable(results);
         jsonToUniqueNamesList(results);
-        jsonToBasicGeoJSON(results);
       }
   });
 }
@@ -56,43 +55,9 @@ function jsonToUniqueNamesList(inputJSON){
   document.getElementById("uniqueOutput").innerHTML += txt;
 }
 
-function jsonToBasicGeoJSON(inputJSON){
-  var txt = "<table border='1'>";
-  var uniqueNames = [];
-  var z = 0
-  for (x in inputJSON.data) {
-    name = inputJSON.data[x][0].slice(0, inputJSON.data[x][0].lastIndexOf("-"));
-    if (typeof uniqueNames[0] == 'undefined') {
-      console.log("starting from nothing");
-      var newThing = {};
-      newThing.name=name;
-      newThing.coords=inputJSON.data[x][1]+","+inputJSON.data[x][2]+","+inputJSON.data[x][3];
-      uniqueNames.push(newThing);
-      z++;
-    } else {
-      if (uniqueNames[z-1].name != name) {
-        var newThing = {};
-        newThing.name=name;
-        newThing.coords=inputJSON.data[x][1]+","+inputJSON.data[x][2]+","+inputJSON.data[x][3];
-        uniqueNames.push(newThing);
-        z++;
-      } else {
-        console.log(uniqueNames[z-1].coords); // += "," +newThing.coords=inputJSON.data[x][1]+","+inputJSON.data[x][2]+","+inputJSON.data[x][3];
-        z++;
-      }
-      txt +="<tr><td>" + uniqueNames[z-1].name + "</td><td>"+ uniqueNames[z-1].coords + "</td></tr>";
-    }
-  }
-  txt += "</table>";
-  document.getElementById("basicGeoOutput").innerHTML += txt;
-  console.log(uniqueNames);
-}
-
-
 </script>
 
 <input type="button" id="goButton" value="show me the CSV" onClick="showCSV();">
 <div id="rawOutput"><h2>All Data:</h2></div>
 <div id="uniqueOutput"><h2>Unique Point Names:</h2></div>
-<div id="basicGeoOutput"><h2>Basic GeoJSON:</h2></div>
 </html>
