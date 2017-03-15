@@ -1,0 +1,23 @@
+{"type":"FeatureCollection",
+  "crs":{
+    "type":"name",
+    "properties":{
+      "name":"urn:ogc:def:crs:EPSG::27700"
+      }
+      },
+      "features":[
+        {
+          "type":"Feature",
+          "id":"PRS84706293143",
+          "properties":{
+            "pointname":"PRS84706293143",
+            "height":"66.353",
+            "code":""
+          },
+          "geometry":{
+            "type":"Point",
+            "coordinates":[319188.425,670947.525]
+            }
+          }
+        ]
+      }
