@@ -1,3 +1,7 @@
+<!DOCTYPE html>
+
+<meta charset="utf-8">
+
 <html>
 
 <script src="js/PaPaParse-4.1.2/papaparse.js"></script>
@@ -10,34 +14,132 @@
 
 <script src="js/jsonQ-master/jsonQ.js"></script>
 
+<script src="js/dropzone.js"></script>
+
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.0.3/dist/leaflet.css" />
+<link rel="stylesheet" href="js/dropzone.css" />
+<link href='http://fonts.googleapis.com/css?family=Roboto:400,300,500,300italic|Inconsolata:400,700' rel='stylesheet' type='text/css'>
 
-<!--<input type="file" id="input"></input>-->
+<style>
+body {font-family: "roboto";}
+.dropzone { border: 2px dashed #0087F7; border-radius: 5px; background: white; margin-bottom: 1rem; }
+.dropzone .dz-message { font-size: 1.2em; font-weight: 400; }
+.dropzone .dz-message .note { font-size: 0.8em; font-weight: 200; display: block; margin-top: 1.4rem; }
 
-<input type="button" id="goButton" value="show me the CSV" onClick="showCSV();">
-<div id="rawOutput"><h2>All Data:</h2></div>
-<div id="uniqueOutput"><h2>Unique Point Names:</h2></div>
-<div id="uniqueCoordOutput"><h2>GeoJSON</h2></div>
-<div id="mapid" style="height: 800px"></div>
-<div id="register"><h2>Data Register</h2></div>
+table {border-collapse: collapse}
+table, th, td {border: 1px solid grey}
+tr:hover {background-color: #f5f5f5}
+tr:nth-child(even) {background-color: #f2f2f2}
 
+.heading {vertical-align:middle; text-align: center;font-size: 1.4em; font-weight: 600; position: relative; top: 50%; transform: translateY(-50%);}
+
+</style>
+
+<div class="heading">survey<img src="jaws-shark-sea-horror-128.png" height=64 style="transform:translateY(50%)"></img>muncher</div>
+
+<!--this is the drag and drop target-->
+<form action="#" class="dropzone" id="csvdropzone">
+  <div class="dz-message">
+    Drop <code>.csv</code> files here or click to go looking for them.
+  </div>
+</form>
+
+
+<!--the rest of the page elements-->
+<input type="button" id="exampleButton" value="use example csv" onClick="exampleCSV();">
+<input type="button" id="goButton" value="process uploaded csvs" onClick="processCSV();">
+<div id="rawOutput"></div>
+<div id="uniqueOutput"></div>
+<div id="uniqueCoordOutput"></div>
+<h3>Map</h3>
+<div id="mapid" style="height: 300px; margin-top: 1rem"></div>
+<div id="register"><h3>Data Register</h3></div>
+<div id="contextregister"><h3>Context Survey Register</h3></div>
 
 <script>
 
-function showCSV() {
+// Leaflet map init
+var mymap = L.map('mapid').setView([55.95,-3.21],11);
+
+// create the tile layer with correct attribution
+var osmUrl='http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+var osmAttrib='Map data © <a href="http://openstreetmap.org">OpenStreetMap</a> contributors';
+var osm = new L.TileLayer(osmUrl, {minZoom: 8, attribution: osmAttrib});
+mymap.addLayer(osm);
+
+
+// ------------------------------------------------------------------
+// 1A - Get server-hosted file. Comment out all but the one you want.
+// ------------------------------------------------------------------
+
+var getFileFromServer = function(callback) {
   //var textData = Papa.parse("data/NNIT-01-151201-cd.csv", {
-  var textData = Papa.parse("data/AFOR-survey-combined-v02-tidied.csv", {
+  //var textData = Papa.parse("data/AFOR-survey-combined-v02-tidied.csv", {
   //var textData = Papa.parse("data/ETEX17-170207.csv", {
+  var textData = Papa.parse("data/170214-DIPN16-TT.csv", {
       download: true,
       delimiter: ",",
       complete: function(results) {
         console.log(results);
-        jsonToTable(results);
-        jsonToUniqueNamesList(results);
-        //jsonToGeoJSON(results);
-        makeRegister(results);
+        callback(results);
       }
-})};
+    }
+  )
+}
+
+// click button to make stuff happen
+function exampleCSV() {
+  getFileFromServer(function(results) {
+    //jsonToTable(results);
+    //jsonToUniqueNamesList(results);
+    jsonToGeoJSON(results);
+    makeOverallRegister(results);
+    }
+  )
+}
+
+// -----------------------------------
+// 1B - Use FileDrop to get user files
+// -----------------------------------
+
+// dropzone init
+Dropzone.autoDiscover = false;
+var csvDropZone = new Dropzone("form#csvdropzone", { url: "#"});
+
+function processCSV() {
+  var textData = {"data":[]};
+  //need this counter to check all files are done - seems messy though
+  var i = 1;
+  for (file in csvDropZone.files) {
+    console.log(i+" of "+csvDropZone.files.length)
+    Papa.parse(csvDropZone.files[file], {
+      delimiter: ",",
+      complete: function(results) {
+          //console.log(results);
+          for(x in results.data) {
+            //horribly rudimentary check for empty rows
+            if(results.data[x][1] != "") {
+              textData.data.push(results.data[x]);
+            }
+          }
+          if(i < (csvDropZone.files.length)) {
+            console.log(textData);
+              i++;
+          } else {
+            console.log(i+" files read");
+            console.log(textData);
+            jsonToGeoJSON(textData);
+            makeOverallRegister(textData);
+            }
+          }
+        }
+      )
+    }
+  }
+
+
+
+
 
 function jsonToTable(inputJSON) {
   var txt = "<table border='1'>";
@@ -112,7 +214,7 @@ function jsonToGeoJSON(inputJSON){
   };
 
 console.log(masterGeoJSON);
-document.getElementById("uniqueCoordOutput").innerHTML += JSON.stringify(masterGeoJSON);
+//document.getElementById("uniqueCoordOutput").innerHTML += JSON.stringify(masterGeoJSON);
 
 //var crs = new L.Proj.CRS('EPSG:27700',
   //'+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +towgs84=446.448,-125.157,542.06,0.15,0.247,0.842,-20.489 +units=m +no_defs'
@@ -120,19 +222,19 @@ document.getElementById("uniqueCoordOutput").innerHTML += JSON.stringify(masterG
 
 proj4.defs('EPSG:27700', '+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +towgs84=446.448,-125.157,542.06,0.15,0.247,0.842,-20.489 +units=m +no_defs');
 
-var mymap = L.map('mapid').setView([55.95,-3.21],11);
-
-// create the tile layer with correct attribution
-var osmUrl='http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-var osmAttrib='Map data © <a href="http://openstreetmap.org">OpenStreetMap</a> contributors';
-var osm = new L.TileLayer(osmUrl, {minZoom: 8, attribution: osmAttrib});
-mymap.addLayer(osm);
+//this was an attempt to not duplicate stuff if several things were uploaded on top of ach other, doesn't work though
+//if (mymap.hasLayer(geoJSONLayer) == true) {
+//  console.log('cleared');
+//  mymap.removeLayer('geoJSONLayer');
+//}
 
 //this works
-L.Proj.geoJson(masterGeoJSON, {'pointToLayer': function(feature, latlng) {
-  return L.marker(latlng).bindPopup(feature.properties.pointname);
+var geoJSONLayer = L.Proj.geoJson(masterGeoJSON, {'pointToLayer': function(feature, latlng) {
+  return L.circleMarker(latlng, {radius:4}).bindPopup(feature.properties.pointname);
   }
-}).addTo(mymap);
+})
+geoJSONLayer.addTo(mymap);
+mymap.fitBounds(geoJSONLayer.getBounds());
 
 //this doesn't work - no idea how to use a javascript plugin
 //var webGeoJSON = gbify.toWGS84(masterGeoJSON);
@@ -140,10 +242,11 @@ L.Proj.geoJson(masterGeoJSON, {'pointToLayer': function(feature, latlng) {
 
 }
 
-function makeRegister(inputJSON) {
+function makeOverallRegister(inputJSON) {
 
   var masterRegister = {};
   masterRegister.items = [];
+  var registerStats = {"contextsMin":0, "contextsMax":0};
 
   for (x in inputJSON.data) {
     name = inputJSON.data[x][0].slice(0, inputJSON.data[x][0].lastIndexOf("-"));
@@ -152,26 +255,87 @@ function makeRegister(inputJSON) {
       console.log(name+" already exists");
       masterRegister.items[test].pointcount = parseInt(masterRegister.items[test].pointcount)+1;
     } else {
-      var shapeData = {"name":name, "pointcount":1};
+      var number = name.replace(/[^0-9]/g,'');
+      //classify
+      var type = "?";
+      var nameL = name.toLowerCase();
+      if(nameL.startsWith("tr")) {
+        type = "trench";
+      } else if (nameL.startsWith("c")) {
+        type = "extent";
+        // to get range of contexts - this could do wiht being extracted into a new function
+        if (registerStats.contextsMin==0) {
+          registerStats.contextsMin = number;
+        }
+        if (parseInt(number) < registerStats.contextsMin) {
+          registerStats.contextsMin = number;
+        }
+        if (registerStats.contextsMax==0) {
+          registerStats.contextsMax = number;
+        }
+        if (parseInt(number) > registerStats.contextsMax) {
+          registerStats.contextsMax = number;
+        }
+      } else if (nameL.startsWith("b")) {
+        type = "base";
+      } else if (nameL.startsWith("s")) {
+        type = "section";
+      } else if (nameL.startsWith("dp")) {
+        type = "drawing";
+      } else if (nameL.startsWith("loe")) {
+        type = "limits";
+      }
+
+      var shapeData = {"name":name, "type":type, "number":number, "pointcount":1};
       masterRegister.items.push(shapeData);
     }
   };
 
   //remove last annoying entry
   masterRegister.items.splice(-1);
+
   console.log(masterRegister);
   var sorted = {};
   sorted.items = jsonQ.sort(masterRegister.items);
   console.log(sorted);
 
-  var tableText = "<table>"
+  //write table
+  var tableText = "<table style='border:10px black; padding: 15px'><tr style='text-align:left; font-weight:800'><th>Feature Name</th><th>Type</th><th>Identifier</th><th>Number of Points</th></tr>"
   for (x in sorted.items) {
-    console.log(x.name);
-    tableText += "<tr><td>" + sorted.items[x].name + "</td><td>"+sorted.items[x].pointcount+" points</td></tr>";
+    //console.log(x.name);
+    tableText += "<tr><td>" + sorted.items[x].name + "</td><td>"+sorted.items[x].type+"</td><td>"+sorted.items[x].number+"</td><td>"+sorted.items[x].pointcount+" points</td></tr>";
   }
   tableText +="</table>";
   document.getElementById("register").innerHTML += tableText;
 
+  var contextText = "<table style='border:10px black; padding: 15px'><tr style='text-align:left; font-weight:800'><th>Context</th><th>Extent</th><th>Section</th><th>Base</th></tr>";
+  for (c=parseInt(registerStats.contextsMin); c<=parseInt(registerStats.contextsMax); c++) {
+    //console.log(c);
+    cPad = ("000000" + c).slice(-6);
+
+
+    var extent = "";
+    var section = "";
+    var base ="";
+
+    for (x in sorted.items) {
+      if (parseInt(sorted.items[x].number) == c) {
+        console.log(c);
+        if(sorted.items[x].type="extent") {
+          extent = "yes";
+        } else if(sorted.items[x].type="section") {
+            section = "yes";
+          } else if(sorted.items[x].type="base") {
+            base = "yes";
+          }
+        }
+      }
+
+    contextText += "<tr><td>"+cPad+"</td><td>"+extent+"</td><td>"+section+"</td><td>"+base+"</td></tr>";
+}
+  contextText +="</table>";
+  document.getElementById("contextregister").innerHTML += contextText;
+  console.log("Context range from: "+registerStats.contextsMin+" to "+registerStats.contextsMax);
 }
 
 function searchNames(master, name) {
