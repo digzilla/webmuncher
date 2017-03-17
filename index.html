@@ -16,6 +16,11 @@
 
 <script src="js/dropzone.js"></script>
 
+<script src="js/FileSaver.js-master/FileSaver.js"></script>
+
+<script src="js/moment.js"></script>
+<script src="js/underscore.js"></script>
+
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.0.3/dist/leaflet.css" />
 <link rel="stylesheet" href="js/dropzone.css" />
 <link href='http://fonts.googleapis.com/css?family=Roboto:400,300,500,300italic|Inconsolata:400,700' rel='stylesheet' type='text/css'>
@@ -31,7 +36,7 @@ table, th, td {border: 1px solid grey}
 tr:hover {background-color: #f5f5f5}
 tr:nth-child(even) {background-color: #f2f2f2}
 
-.heading {vertical-align:middle; text-align: center;font-size: 1.4em; font-weight: 600; position: relative; top: 50%; transform: translateY(-50%);}
+.heading {vertical-align:middle; text-align: center;font-size: 1.4em; font-weight: 600; position: relative; top: 50%; transform: translateY(-50%) skewX(-10deg);}
 
 </style>
 
@@ -48,6 +53,9 @@ tr:nth-child(even) {background-color: #f2f2f2}
 <!--the rest of the page elements-->
 <input type="button" id="exampleButton" value="use example csv" onClick="exampleCSV();">
 <input type="button" id="goButton" value="process uploaded csvs" onClick="processCSV();">
+
+<button id="create" disabled>Create tidied CSV file</button>
+
 <div id="rawOutput"></div>
 <div id="uniqueOutput"></div>
 <div id="uniqueCoordOutput"></div>
@@ -76,11 +84,16 @@ var getFileFromServer = function(callback) {
   //var textData = Papa.parse("data/NNIT-01-151201-cd.csv", {
   //var textData = Papa.parse("data/AFOR-survey-combined-v02-tidied.csv", {
   //var textData = Papa.parse("data/ETEX17-170207.csv", {
-  var textData = Papa.parse("data/170214-DIPN16-TT.csv", {
+  var textData = Papa.parse("data/BCRM-04-final.csv", {
+  //var textData = Papa.parse("data/170214-DIPN16-TT.csv", {
       download: true,
       delimiter: ",",
       complete: function(results) {
+        console.log("getFileFromServer:results = ");
         console.log(results);
+        for(x in results.data) {
+          results.data[x][5]="example file";
+        }
         callback(results);
       }
     }
@@ -111,6 +124,7 @@ function processCSV() {
   //need this counter to check all files are done - seems messy though
   var i = 1;
   for (file in csvDropZone.files) {
+    origFileName=csvDropZone.files[file].name;
     console.log(i+" of "+csvDropZone.files.length)
     Papa.parse(csvDropZone.files[file], {
       delimiter: ",",
@@ -121,6 +135,7 @@ function processCSV() {
             if(results.data[x][1] != "") {
               textData.data.push(results.data[x]);
             }
+            results.data[x][5] = origFileName;
           }
           if(i < (csvDropZone.files.length)) {
             console.log(textData);
@@ -137,45 +152,9 @@ function processCSV() {
     }
   }
 
-
-
-
-
-function jsonToTable(inputJSON) {
-  var txt = "<table border='1'>";
-  for (x in inputJSON.data) {
-      txt +="<tr>"
-      for (y in inputJSON.data[x]) {
-        txt += "<td>" + inputJSON.data[x][y] + "</td>";
-      }
-      txt += "</tr>";
-  }
-  txt += "</table>";
-  document.getElementById("rawOutput").innerHTML += txt;
-
-}
-
-function jsonToUniqueNamesList(inputJSON){
-  var txt = "<table border='1'>";
-  var uniqueNames = [];
-  var z = 0;
-  for (x in inputJSON.data) {
-    name = inputJSON.data[x][0].slice(0, inputJSON.data[x][0].lastIndexOf("-"));
-    if (uniqueNames.Length == 0) {
-      uniqueNames.push(name);
-      txt +="<tr><td>" + name + "</td></tr>";
-      z++;
-    } else {
-      if (uniqueNames[z-1]!=name) {
-        uniqueNames.push(name);
-        txt +="<tr><td>" + name + "</td></tr>";
-        z++;
-      }
-    }
-  }
-  txt += "</table>";
-  document.getElementById("uniqueOutput").innerHTML += txt;
-}
+// ----------------------
+// 2A - prepare basic map
+// ----------------------
 
 function jsonToGeoJSON(inputJSON){
 
@@ -212,35 +191,31 @@ function jsonToGeoJSON(inputJSON){
     };
 
   };
+  console.log("jsonToGeoJSON:masterGeoJSON =");
+  console.log(masterGeoJSON);
 
-console.log(masterGeoJSON);
-//document.getElementById("uniqueCoordOutput").innerHTML += JSON.stringify(masterGeoJSON);
+  proj4.defs('EPSG:27700', '+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +towgs84=446.448,-125.157,542.06,0.15,0.247,0.842,-20.489 +units=m +no_defs');
 
-//var crs = new L.Proj.CRS('EPSG:27700',
-  //'+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +towgs84=446.448,-125.157,542.06,0.15,0.247,0.842,-20.489 +units=m +no_defs'
-//);
+  //this was an attempt to not duplicate stuff if several things were uploaded on top of ach other, doesn't work though
+  //if (mymap.hasLayer(geoJSONLayer) == true) {
+  //  console.log('cleared');
+  //  mymap.removeLayer('geoJSONLayer');
+  //}
 
-proj4.defs('EPSG:27700', '+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +towgs84=446.448,-125.157,542.06,0.15,0.247,0.842,-20.489 +units=m +no_defs');
-
-//this was an attempt to not duplicate stuff if several things were uploaded on top of ach other, doesn't work though
-//if (mymap.hasLayer(geoJSONLayer) == true) {
-//  console.log('cleared');
-//  mymap.removeLayer('geoJSONLayer');
-//}
-
-//this works
-var geoJSONLayer = L.Proj.geoJson(masterGeoJSON, {'pointToLayer': function(feature, latlng) {
-  return L.circleMarker(latlng, {radius:4}).bindPopup(feature.properties.pointname);
-  }
-})
-geoJSONLayer.addTo(mymap);
-mymap.fitBounds(geoJSONLayer.getBounds());
-
-//this doesn't work - no idea how to use a javascript plugin
-//var webGeoJSON = gbify.toWGS84(masterGeoJSON);
-//L.geoJson(webGeoJSON).addto(mymap);
+  //this works
+  var geoJSONLayer = L.Proj.geoJson(masterGeoJSON, {'pointToLayer': function(feature, latlng) {
+    return L.circleMarker(latlng, {radius:4}).bindPopup(feature.properties.pointname);
+    }
+  })
+  geoJSONLayer.addTo(mymap);
+  mymap.fitBounds(geoJSONLayer.getBounds());
 
 }
+
+// ---------------------------------------------------
+// 2B - Create a master register and start classifying
+// ---------------------------------------------------
+
 
 function makeOverallRegister(inputJSON) {
 
@@ -250,10 +225,14 @@ function makeOverallRegister(inputJSON) {
 
   for (x in inputJSON.data) {
     name = inputJSON.data[x][0].slice(0, inputJSON.data[x][0].lastIndexOf("-"));
+    data = inputJSON.data[x];
+
     var test = searchNames(masterRegister,name);
     if (test >= 0) {
-      console.log(name+" already exists");
+      //console.log(name+" already exists");
       masterRegister.items[test].pointcount = parseInt(masterRegister.items[test].pointcount)+1;
+      masterRegister.items[test].originalData.push(data);
+      //console.log(name+" - "+inputJSON.data[x]);
     } else {
       var number = name.replace(/[^0-9]/g,'');
       //classify
@@ -261,7 +240,7 @@ function makeOverallRegister(inputJSON) {
       var nameL = name.toLowerCase();
       if(nameL.startsWith("tr")) {
         type = "trench";
-      } else if (nameL.startsWith("c")) {
+      } else if (nameL.match(/^[c][0-9]/) || nameL.match(/^[0-9]/)) {
         type = "extent";
         // to get range of contexts - this could do wiht being extracted into a new function
         if (registerStats.contextsMin==0) {
@@ -276,37 +255,87 @@ function makeOverallRegister(inputJSON) {
         if (parseInt(number) > registerStats.contextsMax) {
           registerStats.contextsMax = number;
         }
-      } else if (nameL.startsWith("b")) {
+      } else if (nameL.match(/^[b][0-9]/)) {
         type = "base";
-      } else if (nameL.startsWith("s")) {
+      } else if (nameL.match(/^[s][0-9]/)) {
         type = "section";
-      } else if (nameL.startsWith("dp")) {
+      } else if (nameL.startsWith("dp") || nameL.startsWith("dwg") || nameL.match(/^[d][0-9]/)) {
         type = "drawing";
       } else if (nameL.startsWith("loe")) {
         type = "limits";
+      } else if (nameL.startsWith("pre")) {
+        type = "pre-ex";
+      } else if (nameL.startsWith("furrow")) {
+        type = "furrows";
+      } else if (nameL.startsWith("drain") || nameL.startsWith("fd")) {
+        type = "drains";
       }
-
-      var shapeData = {"name":name, "type":type, "number":number, "pointcount":1};
+      var shapeData = {"name":name, "type":type, "number":number, "pointcount":1, "originalData":[data]};
       masterRegister.items.push(shapeData);
     }
   };
 
   //remove last annoying entry
   masterRegister.items.splice(-1);
-
+  console.log("makeOverallRegister:masterRegister = ");
   console.log(masterRegister);
   var sorted = {};
   sorted.items = jsonQ.sort(masterRegister.items);
+  console.log("makeOverallRegister:sorted = ");
+  console.log(sorted);
+
+  //remove duplicates
+  for (x in sorted.items){
+    //console.log(sorted.items[x].originalData.length);
+    sorted.items[x].originalData = removeDuplicates(sorted.items[x].originalData);
+    //sorted.items[x].pointcount = sorted.items[x].originalData.length;
+    //console.log(sorted.items[x].originalData.length);
+  }
   console.log(sorted);
 
   //write table
-  var tableText = "<table style='border:10px black; padding: 15px'><tr style='text-align:left; font-weight:800'><th>Feature Name</th><th>Type</th><th>Identifier</th><th>Number of Points</th></tr>"
+  var tableText = "<table style='border:10px black; padding: 15px'><tr style='text-align:left; font-weight:800'><th>Feature Name</th><th>Type</th><th>Identifier</th><th>Number of Points</th><th>Original Data</th></tr>"
   for (x in sorted.items) {
     //console.log(x.name);
-    tableText += "<tr><td>" + sorted.items[x].name + "</td><td>"+sorted.items[x].type+"</td><td>"+sorted.items[x].number+"</td><td>"+sorted.items[x].pointcount+" points</td></tr>";
+    tableText += "<tr><td>" + sorted.items[x].name + "</td><td>"+sorted.items[x].type+"</td><td>"+sorted.items[x].number+"</td><td>"+sorted.items[x].pointcount+" points</td><td>"+sorted.items[x].originalData+"</td></tr>";
   }
   tableText +="</table>";
   document.getElementById("register").innerHTML += tableText;
+
+  makeContextRegister(sorted, registerStats);
+
+}
+
+function searchNames(master, name) {
+if (master.items == "undefined"){
+  return -1;
+} else {
+  for (x in master.items) {
+    if (master.items[x].name == name) {
+      //console.log(master.items[x].name+" = "+name);
+      return x;
+    }
+  }
+}
+}
+
+function removeDuplicates(data){
+for(x in data){
+  console.log("length at start = "+data.length);
+  if(data.length>1){
+    for (y=data.length-1; y>x; y--){
+      if (data[x][0] == data[y][0]&&data[x][1] == data[y][1]&&data[x][2] == data[y][2]&&data[x][3] == data[y][3]&&data[x][4] == data[y][4]){
+        console.log(data[x]+" duplicate!");
+        data.pop();
+        console.log("length now = "+data.length);
+        }
+      }
+    }
+  }
+return data;
+}
+
+function makeContextRegister(sorted, registerStats) {
 
   var contextText = "<table style='border:10px black; padding: 15px'><tr style='text-align:left; font-weight:800'><th>Context</th><th>Extent</th><th>Section</th><th>Base</th></tr>";
   for (c=parseInt(registerStats.contextsMin); c<=parseInt(registerStats.contextsMax); c++) {
@@ -320,35 +349,40 @@ function makeOverallRegister(inputJSON) {
 
     for (x in sorted.items) {
       if (parseInt(sorted.items[x].number) == c) {
-        console.log(c);
-        if(sorted.items[x].type="extent") {
-          extent = "yes";
-        } else if(sorted.items[x].type="section") {
-            section = "yes";
-          } else if(sorted.items[x].type="base") {
-            base = "yes";
+        //console.log(c);
+        if(sorted.items[x].type=="extent") {
+          extent = sorted.items[x].pointcount+" points";
+        }
+        if (sorted.items[x].type=="section") {
+            section = sorted.items[x].pointcount+" points";
+          }
+        if(sorted.items[x].type=="base") {
+            base = sorted.items[x].pointcount+" points";
           }
         }
       }
 
     contextText += "<tr><td>"+cPad+"</td><td>"+extent+"</td><td>"+section+"</td><td>"+base+"</td></tr>";
-}
+  }
   contextText +="</table>";
   document.getElementById("contextregister").innerHTML += contextText;
   console.log("Context range from: "+registerStats.contextsMin+" to "+registerStats.contextsMax);
+
+outputCSV(sorted);
+
 }
 
-function searchNames(master, name) {
-if (master.items == "undefined"){
-  return -1;
-} else {
-  for (x in master.items) {
-    if (master.items[x].name == name) {
-      return x;
-    }
-  }
+function outputCSV (dataIn) {
+
+  var create = document.getElementById('create');
+    create.disabled = false;
+    create.addEventListener('click', function () {
+      var blob = new Blob([JSON.stringify(dataIn)], {type: "text/plain;charset=utf-8"});
+        saveAs(blob, "surveymuncher-output-"+moment().format('YYMMDD-HHmmss')+".csv");
+    }, false);
+
 }
-}
+
 
 </script>
 
