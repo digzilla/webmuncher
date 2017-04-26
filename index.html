@@ -91,9 +91,10 @@ var getFileFromServer = function(callback) {
       complete: function(results) {
         console.log("getFileFromServer:results = ");
         console.log(results);
-        for(x in results.data) {
-          results.data[x][5]="example file";
-        }
+        //this bit adds a filename column - have taken it out as it makes a mess of de-duping
+        //for(x in results.data) {
+          //results.data[x][5]="example file";
+        //}
         callback(results);
       }
     }
@@ -105,8 +106,13 @@ function exampleCSV() {
   getFileFromServer(function(results) {
     //jsonToTable(results);
     //jsonToUniqueNamesList(results);
-    jsonToGeoJSON(results);
-    makeOverallRegister(results);
+
+    //de-duplicate
+    var deDuped ={"data":[]};
+    deDuped.data = deDupe(results.data);
+    console.log(deDuped);
+    jsonToGeoJSON(deDuped);
+    makeOverallRegister(deDuped);
     }
   )
 }
@@ -135,16 +141,24 @@ function processCSV() {
             if(results.data[x][1] != "") {
               textData.data.push(results.data[x]);
             }
-            results.data[x][5] = origFileName;
+              //this bit adds a filename column - have taken it out as it makes a mess of de-duping
+            //results.data[x][5] = origFileName;
           }
+
           if(i < (csvDropZone.files.length)) {
             console.log(textData);
               i++;
           } else {
             console.log(i+" files read");
+            console.log("all data:");
             console.log(textData);
-            jsonToGeoJSON(textData);
-            makeOverallRegister(textData);
+            //de-duplicate
+            var deDuped ={"data":[]};
+            deDuped.data = deDupe(textData.data);
+            console.log("deDuped data:");
+            console.log(deDuped);
+            jsonToGeoJSON(deDuped);
+            makeOverallRegister(deDuped);
             }
           }
         }
@@ -242,7 +256,7 @@ function makeOverallRegister(inputJSON) {
         type = "trench";
       } else if (nameL.match(/^[c][0-9]/) || nameL.match(/^[0-9]/)) {
         type = "extent";
-        // to get range of contexts - this could do wiht being extracted into a new function
+        // to get range of contexts - this could do with being extracted into a new function
         if (registerStats.contextsMin==0) {
           registerStats.contextsMin = number;
         }
@@ -319,9 +333,10 @@ if (master.items == "undefined"){
 }
 }
 
+//this doesn't work
 function removeDuplicates(data){
 for(x in data){
-  console.log("length at start = "+data.length);
+  //console.log("length at start = "+data.length);
   if(data.length>1){
     for (y=data.length-1; y>x; y--){
       if (data[x][0] == data[y][0]&&data[x][1] == data[y][1]&&data[x][2] == data[y][2]&&data[x][3] == data[y][3]&&data[x][4] == data[y][4]){
@@ -333,6 +348,19 @@ for(x in data){
     }
   }
 return data;
+}
+
+function deDupe(data){
+  //attempt to remove duplicates - this somehow needs to be changed to ignore the last column - original filename
+  var hashTable = {};
+
+	return data.filter(function (el) {
+		var key = JSON.stringify(el);
+		var match = Boolean(hashTable[key]);
+
+		return (match ? false : hashTable[key] = true);
+	});
+
 }
 
 function makeContextRegister(sorted, registerStats) {
@@ -370,19 +398,66 @@ function makeContextRegister(sorted, registerStats) {
 
 outputCSV(sorted);
 
+console.log("Sorted Item 1: "+Papa.unparse(sorted.items[1].originalData));
+
 }
+
 
 function outputCSV (dataIn) {
 
   var create = document.getElementById('create');
     create.disabled = false;
     create.addEventListener('click', function () {
-      var blob = new Blob([JSON.stringify(dataIn)], {type: "text/plain;charset=utf-8"});
+
+      //create new csv using original coordinates and codes but new names
+      //generate a new counter
+      var csvline = "";
+      for (x in dataIn.items) {
+        csvline += writeCSVchunk(dataIn.items[x]);
+      }
+
+      console.log("csvline: "+csvline);
+
+      var blob = new Blob([csvline], {type: "text/plain;charset=utf-8"});
         saveAs(blob, "surveymuncher-output-"+moment().format('YYMMDD-HHmmss')+".csv");
     }, false);
 
 }
 
+function writeCSVchunk (surveyItem) {
+  var count = 1;
+  csvline = "";
+  for (y in surveyItem.originalData) {
+    if (surveyItem.type=="extent"){
+      csvline += "C"+('000000'+surveyItem.number).substring(surveyItem.number.length);
+    } else if(surveyItem.type=="section"){
+      csvline += "S"+('000000'+surveyItem.number).substring(surveyItem.number.length);
+    } else if(surveyItem.type=="base"){
+      csvline += "B"+('000000'+surveyItem.number).substring(surveyItem.number.length);
+    } else if(surveyItem.type=="level"){
+      csvline += "L"+('000000'+surveyItem.number).substring(surveyItem.number.length);
+    } else if(surveyItem.type=="drawing"){
+      csvline += "DP"+('000000'+surveyItem.number).substring(surveyItem.number.length);
+    } else if(surveyItem.type=="trench"){
+      csvline += "TR"+('000000'+surveyItem.number).substring(surveyItem.number.length);
+    } else if(surveyItem.type=="pre-ex"){
+      csvline += "PRE-EX";
+    } else if(surveyItem.type=="furrows"){
+      csvline += "FURROWS";
+    } else if(surveyItem.type=="drains"){
+      csvline += "DRAINS";
+    } else if(surveyItem.type=="limits"){
+      csvline += "LIMITS";
+    } else {
+      csvline += "OTHER-"+ surveyItem.name;
+    }
+    //substring bits for padding
+    csvline += "-"+('00000'+count).slice(-5);
+    csvline += ","+surveyItem.originalData[y][1]+","+surveyItem.originalData[y][2]+","+surveyItem.originalData[y][3]+","+surveyItem.originalData[y][4]+"\n";
+    count++;
+  }
+  return csvline;
+}
 
 </script>
 
